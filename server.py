@@ -6,7 +6,8 @@ import threading
 from fastmcp import FastMCP
 import httpx
 import os
-from typing import Optional, List, Any
+import json
+from typing import Optional
 
 mcp = FastMCP("TeslaMateApi")
 
@@ -23,12 +24,11 @@ def get_headers() -> dict:
 
 @mcp.tool()
 async def get_cars() -> dict:
-    """Retrieve a list of all Tesla vehicles registered in TeslaMate. Use this as the starting point to discover available car IDs before querying car-specific data."""
-    async with httpx.AsyncClient() as client:
+    """Retrieve a list of all Tesla vehicles registered in TeslaMate. Use this as the starting point to discover available car IDs before querying any other car-specific data."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars",
-            headers=get_headers(),
-            timeout=30.0
+            headers=get_headers()
         )
         response.raise_for_status()
         return response.json()
@@ -36,62 +36,11 @@ async def get_cars() -> dict:
 
 @mcp.tool()
 async def get_car_status(car_id: int) -> dict:
-    """Get the current real-time status of a specific Tesla vehicle, including location, battery level, charging state, speed, and other live data sourced from MQTT. Use this when the user wants to know what their car is doing right now."""
-    async with httpx.AsyncClient() as client:
+    """Get the current real-time status of a specific Tesla vehicle from the MQTT broker, including location, battery level, speed, gear, climate, and lock state. Use this when the user asks about the current state or live status of their car."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/status",
-            headers=get_headers(),
-            timeout=30.0
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-@mcp.tool()
-async def get_car_battery_health(car_id: int) -> dict:
-    """Retrieve historical battery health data for a specific Tesla vehicle, showing battery degradation over time. Use this when the user wants to understand how their battery capacity has changed."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{BASE_URL}/api/v1/cars/{car_id}/battery_health",
-            headers=get_headers(),
-            timeout=30.0
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-@mcp.tool()
-async def get_car_charges(
-    car_id: int,
-    page: Optional[int] = 1,
-    per_page: Optional[int] = 25
-) -> dict:
-    """Retrieve a paginated list of past charging sessions for a specific Tesla vehicle. Use this when the user wants an overview of their charging history, costs, or energy added."""
-    params = {}
-    if page is not None:
-        params["page"] = page
-    if per_page is not None:
-        params["per_page"] = per_page
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{BASE_URL}/api/v1/cars/{car_id}/charges",
-            headers=get_headers(),
-            params=params,
-            timeout=30.0
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-@mcp.tool()
-async def get_car_charge_details(car_id: int, charge_id: int) -> dict:
-    """Retrieve detailed information about a specific charging session, including energy added, cost, duration, and charge curve data. Use this when the user wants to inspect a particular charge event."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{BASE_URL}/api/v1/cars/{car_id}/charges/{charge_id}",
-            headers=get_headers(),
-            timeout=30.0
+            headers=get_headers()
         )
         response.raise_for_status()
         return response.json()
@@ -101,34 +50,67 @@ async def get_car_charge_details(car_id: int, charge_id: int) -> dict:
 async def get_car_drives(
     car_id: int,
     page: Optional[int] = 1,
-    per_page: Optional[int] = 25
+    per_page: Optional[int] = 20
 ) -> dict:
-    """Retrieve a paginated list of past driving sessions for a specific Tesla vehicle, including distance, duration, energy used, and efficiency. Use this when the user wants to review their driving history."""
+    """Retrieve a paginated list of past driving sessions for a specific vehicle, including start/end times, distances, energy used, and efficiency. Use this when the user wants a history of trips or driving activity."""
     params = {}
     if page is not None:
         params["page"] = page
     if per_page is not None:
         params["per_page"] = per_page
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/drives",
             headers=get_headers(),
-            params=params,
-            timeout=30.0
+            params=params
         )
         response.raise_for_status()
         return response.json()
 
 
 @mcp.tool()
-async def get_car_drive_details(car_id: int, drive_id: int) -> dict:
-    """Retrieve detailed information about a specific driving session, including route, speed, energy consumption, and efficiency metrics. Use this when the user wants to inspect a particular trip."""
-    async with httpx.AsyncClient() as client:
+async def get_drive_details(car_id: int, drive_id: int) -> dict:
+    """Retrieve detailed information about a single specific drive session, including full route data, speed, power, and efficiency metrics. Use this when the user wants to drill into a particular trip."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/drives/{drive_id}",
+            headers=get_headers()
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+@mcp.tool()
+async def get_car_charges(
+    car_id: int,
+    page: Optional[int] = 1,
+    per_page: Optional[int] = 20
+) -> dict:
+    """Retrieve a paginated history of charging sessions for a specific vehicle, including start/end times, energy added, cost, and charge points used. Use this when the user asks about charging history or costs."""
+    params = {}
+    if page is not None:
+        params["page"] = page
+    if per_page is not None:
+        params["per_page"] = per_page
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{BASE_URL}/api/v1/cars/{car_id}/charges",
             headers=get_headers(),
-            timeout=30.0
+            params=params
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+@mcp.tool()
+async def get_car_battery_health(car_id: int) -> dict:
+    """Retrieve battery health and degradation data for a specific vehicle over time. Use this when the user wants to understand how their battery capacity has changed or check for degradation."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{BASE_URL}/api/v1/cars/{car_id}/battery_health",
+            headers=get_headers()
         )
         response.raise_for_status()
         return response.json()
@@ -138,42 +120,45 @@ async def get_car_drive_details(car_id: int, drive_id: int) -> dict:
 async def send_car_command(
     car_id: int,
     command: str,
-    parameters: Optional[List[Any]] = None
+    parameters: Optional[str] = None
 ) -> dict:
-    """Send a command to a Tesla vehicle through the TeslaMate API. Supported commands include wake_up, door_lock, door_unlock, honk_horn, flash_lights, set_sentry_mode, climate controls, charging controls, and TeslaMate logging controls. Use this when the user wants to remotely control their vehicle. Requires commands to be enabled via environment variables on the server."""
-    # Normalize command path: strip leading slash for URL building
-    command_path = command.lstrip("/")
+    """Send a command to a Tesla vehicle via TeslaMate, such as locking/unlocking doors, honking the horn, flashing lights, waking up the car, controlling climate, or managing charging. Use this when the user wants to remotely control their vehicle. Supported commands include: /wake_up, /command/door_lock, /command/door_unlock, /command/honk_horn, /command/flash_lights, /command/set_sentry_mode, /command/charge_start, /command/charge_stop, /logging/resume, /logging/suspend, and many more."""
+    # Normalize command path
+    if not command.startswith("/"):
+        command = "/" + command
 
-    url = f"{BASE_URL}/api/v1/cars/{car_id}/{command_path}"
+    url = f"{BASE_URL}/api/v1/cars/{car_id}{command}"
 
-    # Build request body if parameters provided
-    body = None
-    if parameters is not None and len(parameters) > 0:
-        # If parameters is a list with a single dict, use that dict as the body
-        if len(parameters) == 1 and isinstance(parameters[0], dict):
-            body = parameters[0]
-        else:
-            body = {"parameters": parameters}
+    body = {}
+    if parameters:
+        try:
+            body = json.loads(parameters)
+        except json.JSONDecodeError:
+            return {"error": f"Invalid JSON in parameters: {parameters}"}
 
-    async with httpx.AsyncClient() as client:
-        if body is not None:
-            response = await client.post(
-                url,
-                headers=get_headers(),
-                json=body,
-                timeout=60.0
-            )
-        else:
-            response = await client.post(
-                url,
-                headers=get_headers(),
-                timeout=60.0
-            )
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            url,
+            headers=get_headers(),
+            json=body
+        )
         response.raise_for_status()
         try:
             return response.json()
         except Exception:
-            return {"status": response.status_code, "message": response.text}
+            return {"status": response.status_code, "text": response.text}
+
+
+@mcp.tool()
+async def get_car_updates(car_id: int) -> dict:
+    """Retrieve software update history for a specific Tesla vehicle, showing firmware versions and when updates were installed. Use this when the user asks about software versions or update history."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.get(
+            f"{BASE_URL}/api/v1/cars/{car_id}/updates",
+            headers=get_headers()
+        )
+        response.raise_for_status()
+        return response.json()
 
 
 
