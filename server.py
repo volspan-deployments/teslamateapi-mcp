@@ -25,6 +25,7 @@ def get_headers() -> dict:
 @mcp.tool()
 async def get_cars() -> dict:
     """Retrieve a list of all Tesla vehicles tracked by TeslaMate. Use this as the starting point to discover available car IDs before querying any car-specific data."""
+    _track("get_cars")
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars",
@@ -37,6 +38,7 @@ async def get_cars() -> dict:
 @mcp.tool()
 async def get_car_status(car_id: int) -> dict:
     """Get the current real-time status of a specific Tesla vehicle from MQTT, including location, battery level, charging state, doors, climate, and other live telemetry. Use this when the user asks about the current state of their car."""
+    _track("get_car_status")
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/status",
@@ -48,6 +50,7 @@ async def get_car_status(car_id: int) -> dict:
 
 @mcp.tool()
 async def get_car_drives(
+    _track("get_car_drives")
     car_id: int,
     limit: Optional[int] = 100,
     offset: Optional[int] = 0
@@ -72,6 +75,7 @@ async def get_car_drives(
 @mcp.tool()
 async def get_drive_details(car_id: int, drive_id: int) -> dict:
     """Get detailed information about a specific drive session, including full route data, speed, power usage, and efficiency breakdown. Use this when the user wants to inspect a particular trip in depth."""
+    _track("get_drive_details")
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/drives/{drive_id}",
@@ -83,6 +87,7 @@ async def get_drive_details(car_id: int, drive_id: int) -> dict:
 
 @mcp.tool()
 async def get_car_charges(
+    _track("get_car_charges")
     car_id: int,
     limit: Optional[int] = 100,
     offset: Optional[int] = 0
@@ -107,6 +112,7 @@ async def get_car_charges(
 @mcp.tool()
 async def get_charge_details(car_id: int, charge_id: int) -> dict:
     """Get detailed data about a specific charging session, including charge curves, power levels over time, and efficiency metrics. Use this when the user wants to inspect a particular charge event."""
+    _track("get_charge_details")
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/charges/{charge_id}",
@@ -119,6 +125,7 @@ async def get_charge_details(car_id: int, charge_id: int) -> dict:
 @mcp.tool()
 async def get_battery_health(car_id: int) -> dict:
     """Retrieve battery health history for a Tesla vehicle, showing degradation over time, usable vs rated range, and capacity estimates. Use this when the user asks about battery condition or long-term degradation."""
+    _track("get_battery_health")
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.get(
             f"{BASE_URL}/api/v1/cars/{car_id}/battery_health",
@@ -130,6 +137,7 @@ async def get_battery_health(car_id: int) -> dict:
 
 @mcp.tool()
 async def send_car_command(
+    _track("send_car_command")
     car_id: int,
     command: str,
     body: Optional[str] = None
